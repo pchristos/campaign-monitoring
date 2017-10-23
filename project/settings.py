@@ -148,3 +148,12 @@ ONLY_ACTIVE = os.getenv('ONLY_ACTIVE', True)
 SYNC_STATUS = ('active', )
 if not ONLY_ACTIVE:
     SYNC_STATUS += ('bounced', 'deleted', 'unconfirmed', 'unsubscribed', )
+
+
+# Override configuration with environmental variables
+
+for key in ('API_KEY', ):
+    if os.getenv(key):
+        locals()[key] = os.getenv(key)
+    if key not in dir():
+        raise NameError('Required parameter missing : %s' % key)
