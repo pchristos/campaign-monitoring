@@ -1,0 +1,36 @@
+<center>
+    <h2>Campaign Client {{ client.name }} Mailing List</h2>
+    {% for list in lists %}
+        <h3>{{ list.name }}</h3>
+        <table align="center" cellpadding=10px cellspacing=10px frame="border" rules="all">
+            <thead>
+                <tr align="center">
+                    <th>Subscriber</th>
+                    <th>E-mail</th>
+                    <th>State</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            {% for sub in list.campaignsubscriber_set.all %}
+                <tbody>
+                    <tr>
+                        <td align="center" valign="center">{{ sub.name }}</td>
+                        <td align="center" valign="center">{{ sub.email }}</td>
+                        <td align="center" valign="center">{{ sub.state }}</td>
+                        <td align="center" valign="center">
+                        {% if sub.active %}
+                            <form action="{% url 'remove-subscriber' client_id=client.external_id list_id=list.external_id subscriber_id=sub.id%}" method="post"> {% csrf_token %}
+                            <input type="submit" value="Delete"/></form>
+                        {% else %}
+                            -
+                        </td>
+                        {% endif %}
+                    </tr>
+                </tbody>
+            {% endfor %}
+        </table>
+    {% empty %}
+        <h3>No Campaign Lists Available</h3>
+    {% endfor %}
+    <p><a href="{% url 'add-subscriber' client.external_id %}">Add new subscriber</a></p>
+</center>
