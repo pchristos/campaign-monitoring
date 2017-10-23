@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -ex
+
+python /campaign/manage.py migrate
+python /campaign/manage.py create-user -s
+
+set +x
+
+exec "$@"
