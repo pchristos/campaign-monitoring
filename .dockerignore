@@ -1,0 +1,11 @@
+.env
+.git
+.gitignore
+.dockerignore
+
+**/*.py[cod]
+**/.*.sw[op]
+
+Dockerfile
+
+db.sqlite3

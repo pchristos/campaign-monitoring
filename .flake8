@@ -1,0 +1,12 @@
+[flake8]
+show-source = True
+statistics = True
+count = True
+ignore =
+exclude =
+    .git,
+    app/urls.py,
+    app/template/,
+    app/tests.py,
+    app/migrations/,
+    project/settings.py,
