@@ -4,10 +4,6 @@ import createsend
 
 from django.conf import settings
 
-from .models import CampaignList
-from .models import CampaignClient
-from .models import CampaignSubscriber
-
 
 CS_AUTH = {'api_key': settings.API_KEY}
 
@@ -33,6 +29,7 @@ def sync_client(client_id):
         client_id   the ClientID assigned by Campaign Monitoring
 
     """
+    from .models import CampaignClient
     details = get_client_details(client_id)
     client = CampaignClient()
     client.name = details.ContactName
@@ -64,6 +61,7 @@ def sync_client_lists(client):
         client   an instance of `.models.CampaignClient`
 
     """
+    from .models import CampaignList
     for upstream_list in get_client_lists(client):
         clist = CampaignList()
         clist.client = client
@@ -93,6 +91,7 @@ def sync_list_subscribers(clist):
         clist   an instance of `.models.CampaignList`
 
     """
+    from .models import CampaignSubscriber
     for upstream_subscriber in get_list_subscribers(clist):
         subscriber = CampaignSubscriber()
         # We need to save before being able to create a m2m relationship.

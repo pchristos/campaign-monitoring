@@ -6,8 +6,6 @@ from .models import CampaignSubscriber
 from .models import SubscriberCreationForm
 
 from .upstream import sync_client
-from .upstream import import_subscriber
-from .upstream import delete_subscriber
 
 from django.urls import reverse
 from django.http import Http404
@@ -85,23 +83,12 @@ class AddSubscriberToList(CreateView):
         # Prepare intial request params.
         name = self.request.POST.get('name')
         email = self.request.POST.get('email')
-        params = {'name': name, 'email_address': email}
 
         for clist_id in request.POST.getlist('lists'):
-
             # Get subscription list and verify ownership.
             self.clist = get_object_or_404(CampaignList, pk=clist_id)
             if self.clist.client.external_id != kwargs['client_id']:
-                raise Http404
-
-            # Attempt to add new subscriber to the specified list.
-            try:
-                params.update({'list_id': self.clist.external_id})
-                import_subscriber(**params)
-            except Exception as exc:
-                log.error('Failed to import subscriber: %r', exc)
-                raise
-
+                raise Http404()
             # Persist locally. The object is instantiated either by fetching it
             # from the db or while processing the corresponding form during the
             # call to `super()` in case we are creating a new object.
@@ -109,11 +96,11 @@ class AddSubscriberToList(CreateView):
                 self.object = CampaignSubscriber.objects.get(email=email)
                 self.object.name = name
             except CampaignSubscriber.DoesNotExist:
-                http_redirect = super(
-                    AddSubscriberToList,self).post(request, *args, **kwargs)
+                http_redirect = super(AddSubscriberToList,
+                                      self).post(request, *args, **kwargs)
             else:
                 http_redirect = HttpResponseRedirect(self.get_success_url())
-            self.object.lists.add(self.clist)
+            self.object.subscribe(self.clist)
             self.object.save()
 
         return http_redirect
@@ -148,17 +135,15 @@ class RemoveSubscriberFromList(DeleteView):
                 continue
             if clist.client.external_id != kwargs['client_id']:
                 continue
-            self.clist= clist
-            break
-        else:
-            raise Http404()
-        try:
-            delete_subscriber(clist.external_id, subscriber.email)
-        except Exception as exc:
-            log.error('Failed to remove subscriber: %r', exc)
-            raise
-        return super(RemoveSubscriberFromList, self).post(request,
-                                                          *args, **kwargs)
+            self.clist = clist
+            try:
+                self.clist.unsubscribe(subscriber)
+            except Exception as exc:
+                log.error('Failed to remove subscriber: %r', exc)
+                raise
+            return super(RemoveSubscriberFromList, self).post(request,
+                                                              *args, **kwargs)
+        raise Http404()
 
     def delete(self, request, *args, **kwargs):
         """Delete the fetched object and then redirect to the success URL.
@@ -169,7 +154,6 @@ class RemoveSubscriberFromList(DeleteView):
 
         """
         self.object = self.get_object()
-        self.object.lists.remove(self.clist)
         if not self.object.lists.count():
             self.object.delete()
         return HttpResponseRedirect(self.get_success_url())

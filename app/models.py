@@ -4,6 +4,9 @@ from django import forms
 from django.db import models
 from django.core.exceptions import ValidationError
 
+from .upstream import import_subscriber
+from .upstream import delete_subscriber
+
 
 def validate_external_id(_id):
     """Validate a resource's external ID."""
@@ -48,7 +51,7 @@ class CampaignClient(models.Model):
 class CampaignList(models.Model):
     """A campaign list associated with a specific client.
 
-    A campaign list logically groups subscribers together.
+    A campaign list groups subscribers logically together.
 
     """
 
@@ -58,10 +61,29 @@ class CampaignList(models.Model):
     external_id = models.CharField(max_length=32,
                                    validators=[validate_external_id])
 
+    def subscribe(self, subscriber):
+        """Add `subscriber` to self."""
+        assert isinstance(subscriber, CampaignSubscriber)
+        params = {'name': subscriber.name, 'email_address': subscriber.email}
+        import_subscriber(self.external_id, **params)
+        self.campaignsubscriber_set.add(subscriber)
+
+    def unsubscribe(self, subscriber):
+        """Remove `subscriber` from self."""
+        assert isinstance(subscriber, CampaignSubscriber)
+        delete_subscriber(self.external_id, subscriber.email)
+        self.campaignsubscriber_set.remove(subscriber)
+
     def save(self, *args, **kwargs):
         """Perform full validation and save."""
         self.full_clean()
         super(CampaignList, self).save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """Delete a list and remove all of its subscribers."""
+        for subscriber in self.campaignsubscriber_set.all():
+            delete_subscriber(self.external_id, subscriber.email)
+        super(CampaignList, self).delete(*args, **kwargs)
 
     def __str__(self):
         return 'List "%s" of %s' % (self.name, self.client)
@@ -94,6 +116,30 @@ class CampaignSubscriber(models.Model):
     @property
     def active(self):
         return self.state == 'Active'
+
+    def subscribe(self, clist):
+        """Subscribe self to the specified list."""
+        assert isinstance(clist, CampaignList)
+        params = {'name': self.name, 'email_address': self.email}
+        import_subscriber(clist.external_id, **params)
+        self.lists.add(clist)
+
+    def unsubscribe(self, clist):
+        """Unsubscribe self from the specific subscribtion list."""
+        assert isinstance(clist, CampaignList)
+        delete_subscriber(clist.external_id, self.email)
+        self.lists.remove(clist)
+
+    def save(self, *args, **kwargs):
+        """Perform full validation and save."""
+        self.full_clean()
+        super(CampaignSubscriber, self).save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """Delete a subscriber both locally and remotely."""
+        for clist in self.lists.all():
+            delete_subscriber(clist.external_id, self.email)
+        super(CampaignSubscriber, self).delete(*args, **kwargs)
 
     def __str__(self):
         return 'Subscriber "%s"' % (self.name or self.email)
